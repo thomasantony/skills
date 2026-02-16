@@ -7,6 +7,7 @@ A skill marketplace for [Claude Code](https://claude.com/claude-code) with plugi
 | Skill | Description |
 |-------|-------------|
 | **vikunja** | Read-only querying of a [Vikunja](https://vikunja.io/) task manager instance — list projects, search tasks, filter by labels and due dates |
+| **actual-budget** | Manage transactions and query budget data in a self-hosted [Actual Budget](https://actualbudget.org/) instance |
 
 ## Installation
 
@@ -22,6 +23,10 @@ In Claude Code, run:
 
 ```
 /plugin install vikunja@thomasantony-skills
+```
+
+```
+/plugin install actual-budget@thomasantony-skills
 ```
 
 ### 3. Configure
@@ -41,6 +46,18 @@ Alternatively, store the token in a file and point to it:
 export VIKUNJA_URL="https://your-vikunja-instance.example.com"
 export VIKUNJA_TOKEN_FILE="$HOME/.config/vikunja/token"
 ```
+
+For Actual Budget:
+
+```bash
+export ACTUAL_SERVER_URL="http://your-server:5006"
+export ACTUAL_PASSWORD="your-password"
+export ACTUAL_SYNC_ID="your-sync-id-from-settings"
+```
+
+Or store in `~/.config/actual-budget/.env`.
+
+**Note:** The skill requires Node.js. Dependencies are installed automatically on first use.
 
 ## License
 

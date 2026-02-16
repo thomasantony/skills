@@ -17,6 +17,19 @@
         "url": "https://github.com/thomasantony/skills.git"
       },
       "category": "skills"
+    },
+    {
+      "name": "actual-budget",
+      "description": "Manage transactions and query budget data in a self-hosted Actual Budget instance",
+      "version": "0.1.0",
+      "author": {
+        "name": "Thomas Antony"
+      },
+      "source": {
+        "source": "url",
+        "url": "https://github.com/thomasantony/skills.git"
+      },
+      "category": "skills"
     }
   ]
 }
