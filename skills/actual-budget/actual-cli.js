@@ -92,7 +92,55 @@ function parseArgs(argv) {
 
 // --- Commands ---
 
-const commands = {};
+const commands = {
+
+  'list-accounts': () => withBudget(async (api) => {
+    const accounts = await api.getAccounts();
+    const open = accounts.filter(a => !a.closed);
+    const results = [];
+    for (const acct of open) {
+      const bal = await api.getAccountBalance(acct.id);
+      results.push({
+        id: acct.id,
+        name: acct.name,
+        offbudget: acct.offbudget,
+        balance: api.utils.integerToAmount(bal),
+      });
+    }
+    return results;
+  }),
+
+  'list-categories': () => withBudget(async (api) => {
+    const categories = await api.getCategories();
+    const groups = await api.getCategoryGroups();
+    const groupMap = new Map(groups.map(g => [g.id, g.name]));
+    const grouped = new Map();
+    for (const cat of categories) {
+      const groupId = cat.group_id;
+      if (!grouped.has(groupId)) {
+        grouped.set(groupId, {
+          group: groupMap.get(groupId) || groupId,
+          id: groupId,
+          categories: [],
+        });
+      }
+      grouped.get(groupId).categories.push({
+        id: cat.id,
+        name: cat.name,
+        is_income: cat.is_income,
+      });
+    }
+    return Array.from(grouped.values());
+  }),
+
+  'list-payees': () => withBudget(async (api) => {
+    const payees = await api.getPayees();
+    return payees
+      .filter(p => !p.transfer_acct)
+      .map(p => ({ id: p.id, name: p.name, category: p.category }));
+  }),
+
+};
 
 // --- Main ---
 
