@@ -90,6 +90,28 @@ function parseArgs(argv) {
   return args;
 }
 
+// --- CSV parsing ---
+
+function parseCSV(content) {
+  const lines = content.trim().split('\n');
+  if (lines.length < 2) throw new Error('CSV must have a header row and at least one data row');
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  return lines.slice(1).map(line => {
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+    for (const ch of line) {
+      if (ch === '"') { inQuotes = !inQuotes; }
+      else if (ch === ',' && !inQuotes) { values.push(current.trim()); current = ''; }
+      else { current += ch; }
+    }
+    values.push(current.trim());
+    const row = {};
+    headers.forEach((h, i) => { row[h] = values[i] || ''; });
+    return row;
+  });
+}
+
 // --- Commands ---
 
 const commands = {
@@ -129,6 +151,49 @@ const commands = {
       const ids = await api.addTransactions(accountId, [transaction]);
       await api.sync();
       return { created: ids[0] };
+    });
+  },
+
+  'import-transactions': (args) => {
+    if (!args.account) throw new Error('--account <name> is required');
+    if (!args.file) throw new Error('--file <path-to-csv> is required');
+    const csvContent = fs.readFileSync(args.file, 'utf8');
+    const rows = parseCSV(csvContent);
+    return withBudget(async (api) => {
+      const accountId = await api.getIDByName({ type: 'accounts', name: args.account });
+      if (!accountId) throw new Error(`Account not found: ${args.account}`);
+
+      const categories = await api.getCategories();
+      const categoryMap = new Map(categories.map(c => [c.name.toLowerCase(), c.id]));
+
+      const transactions = rows.map((row, i) => {
+        if (!row.date) throw new Error(`Row ${i + 1}: missing required field "date"`);
+        if (!row.amount) throw new Error(`Row ${i + 1}: missing required field "amount"`);
+
+        const t = {
+          date: row.date,
+          amount: api.utils.amountToInteger(parseFloat(row.amount)),
+        };
+
+        if (row.payee) t.imported_payee = row.payee;
+        if (row.category) {
+          const catId = categoryMap.get(row.category.toLowerCase());
+          if (!catId) throw new Error(`Row ${i + 1}: category not found: ${row.category}`);
+          t.category = catId;
+        }
+        if (row.notes) t.notes = row.notes;
+        if (row.imported_id) t.imported_id = row.imported_id;
+
+        return t;
+      });
+
+      const result = await api.importTransactions(accountId, transactions);
+      await api.sync();
+      return {
+        added: result.added?.length || 0,
+        updated: result.updated?.length || 0,
+        errors: result.errors || [],
+      };
     });
   },
 
