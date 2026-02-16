@@ -94,6 +94,44 @@ function parseArgs(argv) {
 
 const commands = {
 
+  'add-transaction': (args) => {
+    if (!args.account) throw new Error('--account <name> is required');
+    if (!args.date) throw new Error('--date <YYYY-MM-DD> is required');
+    if (!args.amount) throw new Error('--amount <number> is required');
+    return withBudget(async (api) => {
+      const accountId = await api.getIDByName({ type: 'accounts', name: args.account });
+      if (!accountId) throw new Error(`Account not found: ${args.account}`);
+
+      const transaction = {
+        date: args.date,
+        amount: api.utils.amountToInteger(parseFloat(args.amount)),
+      };
+
+      if (args.payee) {
+        const payeeId = await api.getIDByName({ type: 'payees', name: args.payee });
+        if (payeeId) {
+          transaction.payee = payeeId;
+        } else {
+          transaction.imported_payee = args.payee;
+        }
+      }
+
+      if (args.category) {
+        const categoryId = await api.getIDByName({ type: 'categories', name: args.category });
+        if (!categoryId) throw new Error(`Category not found: ${args.category}`);
+        transaction.category = categoryId;
+      }
+
+      if (args.notes) {
+        transaction.notes = args.notes;
+      }
+
+      const ids = await api.addTransactions(accountId, [transaction]);
+      await api.sync();
+      return { created: ids[0] };
+    });
+  },
+
   'list-accounts': () => withBudget(async (api) => {
     const accounts = await api.getAccounts();
     const open = accounts.filter(a => !a.closed);
