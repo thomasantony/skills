@@ -140,6 +140,75 @@ const commands = {
       .map(p => ({ id: p.id, name: p.name, category: p.category }));
   }),
 
+  'get-transactions': (args) => {
+    if (!args.account) {
+      throw new Error('--account <name> is required');
+    }
+    const from = args.from || '2000-01-01';
+    const to = args.to || new Date().toISOString().slice(0, 10);
+    return withBudget(async (api) => {
+      const accountId = await api.getIDByName({ type: 'accounts', name: args.account });
+      if (!accountId) {
+        throw new Error(`Account not found: ${args.account}`);
+      }
+      const [transactions, payees, categories] = await Promise.all([
+        api.getTransactions(accountId, from, to),
+        api.getPayees(),
+        api.getCategories(),
+      ]);
+      const payeeMap = new Map(payees.map(p => [p.id, p.name]));
+      const categoryMap = new Map(categories.map(c => [c.id, c.name]));
+      return transactions.map(t => ({
+        id: t.id,
+        date: t.date,
+        amount: api.utils.integerToAmount(t.amount),
+        payee: payeeMap.get(t.payee) || t.payee || null,
+        category: categoryMap.get(t.category) || t.category || null,
+        notes: t.notes,
+        cleared: t.cleared,
+        imported_id: t.imported_id,
+      }));
+    });
+  },
+
+  'get-budget': (args) => {
+    if (!args.month) {
+      throw new Error('--month <YYYY-MM> is required');
+    }
+    return withBudget(async (api) => {
+      const budget = await api.getBudgetMonth(args.month);
+      const [categories, groups] = await Promise.all([
+        api.getCategories(),
+        api.getCategoryGroups(),
+      ]);
+      const categoryMap = new Map(categories.map(c => [c.id, c.name]));
+      const groupMap = new Map(groups.map(g => [g.id, g.name]));
+      return {
+        month: budget.month,
+        incomeAvailable: api.utils.integerToAmount(budget.incomeAvailable),
+        lastMonthOverspent: api.utils.integerToAmount(budget.lastMonthOverspent),
+        forNextMonth: api.utils.integerToAmount(budget.forNextMonth),
+        totalBudgeted: api.utils.integerToAmount(budget.totalBudgeted),
+        toBudget: api.utils.integerToAmount(budget.toBudget),
+        categoryGroups: budget.categoryGroups.map(g => ({
+          id: g.id,
+          name: groupMap.get(g.id) || g.id,
+          budgeted: api.utils.integerToAmount(g.budgeted),
+          spent: api.utils.integerToAmount(g.spent),
+          balance: api.utils.integerToAmount(g.balance),
+          categories: g.categories.map(c => ({
+            id: c.id,
+            name: categoryMap.get(c.id) || c.id,
+            budgeted: api.utils.integerToAmount(c.budgeted),
+            spent: api.utils.integerToAmount(c.spent),
+            balance: api.utils.integerToAmount(c.balance),
+            carryover: c.carryover,
+          })),
+        })),
+      };
+    });
+  },
+
 };
 
 // --- Main ---
