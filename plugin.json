@@ -1,0 +1,10 @@
+{
+  "name": "vikunja",
+  "description": "Read-only query skill for Vikunja task manager - list projects, search tasks, filter by labels and due dates",
+  "version": "0.1.0",
+  "author": {
+    "name": "Thomas Antony"
+  },
+  "license": "MIT",
+  "keywords": ["vikunja", "tasks", "todo", "project-management"]
+}
