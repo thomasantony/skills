@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 
+process.on('unhandledRejection', (reason) => {
+  console.error(JSON.stringify({ error: reason?.message || JSON.stringify(reason) }));
+  process.exit(1);
+});
+
 const fs = require('fs');
 const path = require('path');
 
@@ -11,10 +16,12 @@ function parseEnvFile(filePath) {
   for (const line of fs.readFileSync(filePath, 'utf8').split('\n')) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
-    const eq = trimmed.indexOf('=');
+    // Strip 'export ' prefix (shell-style .env files)
+    const cleaned = trimmed.startsWith('export ') ? trimmed.slice(7) : trimmed;
+    const eq = cleaned.indexOf('=');
     if (eq === -1) continue;
-    const key = trimmed.slice(0, eq).trim();
-    let val = trimmed.slice(eq + 1).trim();
+    const key = cleaned.slice(0, eq).trim();
+    let val = cleaned.slice(eq + 1).trim();
     if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
       val = val.slice(1, -1);
     }
@@ -55,6 +62,10 @@ async function withBudget(fn) {
 
   fs.mkdirSync(config.dataDir, { recursive: true });
 
+  // Suppress noisy API logs (sync messages, spreadsheet loading) during lifecycle
+  const origLog = console.log;
+  console.log = () => {};
+
   await api.init({ dataDir: config.dataDir, serverURL: config.serverURL, password: config.password });
 
   const dlOpts = config.encryptionPassword ? { password: config.encryptionPassword } : undefined;
@@ -64,6 +75,7 @@ async function withBudget(fn) {
     return await fn(api);
   } finally {
     await api.shutdown();
+    console.log = origLog;
   }
 }
 
@@ -121,7 +133,7 @@ const commands = {
     if (!args.date) throw new Error('--date <YYYY-MM-DD> is required');
     if (!args.amount) throw new Error('--amount <number> is required');
     return withBudget(async (api) => {
-      const accountId = await api.getIDByName({ type: 'accounts', name: args.account });
+      const accountId = await api.getIDByName('accounts', args.account);
       if (!accountId) throw new Error(`Account not found: ${args.account}`);
 
       const transaction = {
@@ -130,16 +142,11 @@ const commands = {
       };
 
       if (args.payee) {
-        const payeeId = await api.getIDByName({ type: 'payees', name: args.payee });
-        if (payeeId) {
-          transaction.payee = payeeId;
-        } else {
-          transaction.imported_payee = args.payee;
-        }
+        transaction.imported_payee = args.payee;
       }
 
       if (args.category) {
-        const categoryId = await api.getIDByName({ type: 'categories', name: args.category });
+        const categoryId = await api.getIDByName('categories', args.category);
         if (!categoryId) throw new Error(`Category not found: ${args.category}`);
         transaction.category = categoryId;
       }
@@ -160,7 +167,7 @@ const commands = {
     const csvContent = fs.readFileSync(args.file, 'utf8');
     const rows = parseCSV(csvContent);
     return withBudget(async (api) => {
-      const accountId = await api.getIDByName({ type: 'accounts', name: args.account });
+      const accountId = await api.getIDByName('accounts', args.account);
       if (!accountId) throw new Error(`Account not found: ${args.account}`);
 
       const categories = await api.getCategories();
@@ -250,7 +257,7 @@ const commands = {
     const from = args.from || '2000-01-01';
     const to = args.to || new Date().toISOString().slice(0, 10);
     return withBudget(async (api) => {
-      const accountId = await api.getIDByName({ type: 'accounts', name: args.account });
+      const accountId = await api.getIDByName('accounts', args.account);
       if (!accountId) {
         throw new Error(`Account not found: ${args.account}`);
       }
@@ -330,7 +337,8 @@ async function main() {
     const result = await commands[command](args);
     console.log(JSON.stringify(result, null, 2));
   } catch (err) {
-    console.error(JSON.stringify({ error: err.message }));
+    const message = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+    console.error(JSON.stringify({ error: message }));
     process.exit(1);
   }
 }
