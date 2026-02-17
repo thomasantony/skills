@@ -30,6 +30,19 @@
         "url": "https://github.com/thomasantony/skills.git"
       },
       "category": "skills"
+    },
+    {
+      "name": "vps-hardening-ubuntu",
+      "description": "Security hardening runbook for fresh Ubuntu VPS — SSH lockdown, firewall, fail2ban, sysctl, automatic updates, and service cleanup",
+      "version": "0.1.0",
+      "author": {
+        "name": "Thomas Antony"
+      },
+      "source": {
+        "source": "url",
+        "url": "https://github.com/thomasantony/skills.git"
+      },
+      "category": "skills"
     }
   ]
 }

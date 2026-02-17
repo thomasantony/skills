@@ -8,6 +8,7 @@ A skill marketplace for [Claude Code](https://claude.com/claude-code) with plugi
 |-------|-------------|
 | **vikunja** | Read-only querying of a [Vikunja](https://vikunja.io/) task manager instance — list projects, search tasks, filter by labels and due dates |
 | **actual-budget** | Manage transactions and query budget data in a self-hosted [Actual Budget](https://actualbudget.org/) instance |
+| **vps-hardening-ubuntu** | Security hardening runbook for a fresh Ubuntu VPS — SSH lockdown, UFW firewall, fail2ban, sysctl, automatic updates, and service cleanup |
 
 ## Installation
 
@@ -27,6 +28,10 @@ In Claude Code, run:
 
 ```
 /plugin install actual-budget@thomasantony-skills
+```
+
+```
+/plugin install vps-hardening-ubuntu@thomasantony-skills
 ```
 
 ### 3. Configure
@@ -58,6 +63,8 @@ export ACTUAL_SYNC_ID="your-sync-id-from-settings"
 Or store in `~/.config/actual-budget/.env`.
 
 **Note:** The skill requires Node.js. Dependencies are installed automatically on first use.
+
+For VPS Hardening, no environment variables are needed — the skill will prompt you for the server IP, hostname alias, admin username, and SSH port when invoked.
 
 ## License
 
