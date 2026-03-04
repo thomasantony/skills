@@ -35,6 +35,24 @@ npm install --prefix <SKILL_DIR>/skills/actual-budget --silent
 
 Where `<SKILL_DIR>` is the directory containing this skill.
 
+### API Version Matching (Critical)
+
+**The @actual-app/api package version MUST match your server version.** Version mismatches cause "out-of-sync-migrations" errors.
+
+Check your server version (visible in Actual UI or logs), then update if needed:
+```bash
+# Check current version
+npm list --prefix <SKILL_DIR>/skills/actual-budget @actual-app/api
+
+# Update to match server (e.g., 26.3.0)
+npm install --prefix <SKILL_DIR>/skills/actual-budget @actual-app/api@26.3.0
+```
+
+Clear the cache if you get migration errors after updating:
+```bash
+rm -rf ~/.cache/actual-budget
+```
+
 ## Running Commands
 
 ```bash
@@ -71,7 +89,9 @@ All commands output JSON to stdout. Errors go to stderr as JSON.
 date,amount,payee,category,notes,imported_id
 2026-02-15,-25.00,Costco,Groceries,weekly shopping,bank-ref-123
 ```
-Columns `category`, `notes`, and `imported_id` are optional. The `imported_id` field enables duplicate detection on re-import.
+Columns `category`, `notes`, and `imported_id` are optional.
+
+**`imported_id` is critical for duplicate handling:** When importing transactions from user-provided lists that may contain scheduled duplicates, always include `imported_id`. Actual uses this field to detect duplicates via its reconciliation engine—if a transaction with that ID already exists, it updates instead of duplicating. Use a format like `{payee}-{date}-{amount}` (e.g., `costco-2026-02-15-25.00`).
 
 ## Categorization Workflow
 
@@ -115,3 +135,12 @@ When the user provides transactions to enter (freeform text or file):
 - `add-transaction` does NOT deduplicate. Use `import-transactions` with `imported_id` when re-importing.
 - The script syncs changes to the server automatically after writes.
 - If a payee name doesn't match an existing payee, it's stored as `imported_payee` (Actual will create or match it via rules).
+
+## Troubleshooting
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "Could not get remote files" | Server unreachable | Verify `ACTUAL_SERVER_URL` in config, restart server |
+| "Database is out of sync with migrations" | API package version mismatch | Update API package to match server version (see Setup) |
+| "No budget file is open" | Migration sync failed | Clear cache: `rm -rf ~/.cache/actual-budget` then retry |
+| "Unexpected end of JSON input" | Corrupted local cache | Clear cache and restart |
