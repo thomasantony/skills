@@ -53,6 +53,22 @@ Clear the cache if you get migration errors after updating:
 rm -rf ~/.cache/actual-budget
 ```
 
+## Pre-flight Connectivity Check
+
+**Always check server connectivity BEFORE running commands.** This catches VPN/tunnel/networking issues early and provides clear feedback.
+
+```bash
+# Test connectivity to server
+ACTUAL_SERVER_URL=$(grep ACTUAL_SERVER_URL ~/.config/actual-budget/.env | cut -d= -f2)
+curl -s -m 5 "$ACTUAL_SERVER_URL" > /dev/null && echo "✓ Server reachable" || echo "✗ Cannot reach $ACTUAL_SERVER_URL - check VPN/tunnel/network"
+```
+
+If unreachable:
+- Verify VPN/tunnel is connected
+- Check firewall/network access
+- Verify `ACTUAL_SERVER_URL` in config is correct
+- Test with `curl -v <URL>` for more details
+
 ## Running Commands
 
 ```bash
@@ -97,7 +113,8 @@ Columns `category`, `notes`, and `imported_id` are optional.
 
 When the user provides transactions to enter (freeform text or file):
 
-1. **Fetch context first.** Run `list-categories` and `list-payees` to know available categories and existing payee-to-category mappings.
+0. **Check server connectivity first.** Use the pre-flight check above. If unreachable, troubleshoot before proceeding—don't attempt API calls to a down server.
+1. **Fetch context.** Run `list-categories` and `list-payees` to know available categories and existing payee-to-category mappings.
 2. **Auto-categorize** transactions where possible:
    - Match payee names against existing payees (which may have default categories)
    - Infer from common merchant names (e.g., "Shell" → Transportation, "Whole Foods" → Groceries)
@@ -140,7 +157,32 @@ When the user provides transactions to enter (freeform text or file):
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| "Could not get remote files" | Server unreachable | Verify `ACTUAL_SERVER_URL` in config, restart server |
+| "Could not get remote files" | Server unreachable (network/VPN/tunnel/firewall) | Run pre-flight connectivity check above. If fails: verify VPN connected, firewall allows traffic, server URL correct, server is running |
+| "Connection refused" | Server not running or wrong port | Verify server is running: `curl -v $ACTUAL_SERVER_URL`. Check server logs |
+| "timeout" | Server slow or unreachable | Test with: `curl -v -m 10 $ACTUAL_SERVER_URL`. May indicate VPN latency or network issues |
 | "Database is out of sync with migrations" | API package version mismatch | Update API package to match server version (see Setup) |
 | "No budget file is open" | Migration sync failed | Clear cache: `rm -rf ~/.cache/actual-budget` then retry |
 | "Unexpected end of JSON input" | Corrupted local cache | Clear cache and restart |
+
+### Network Troubleshooting Checklist
+
+```bash
+# 1. Check if server is running and reachable
+curl -v http://your-server-url:5006
+
+# 2. Verify config has correct URL
+grep ACTUAL_SERVER_URL ~/.config/actual-budget/.env
+
+# 3. Test from command line
+ping your-server-host
+traceroute your-server-host  # macOS: traceroute, Linux: traceroute
+
+# 4. Check VPN/tunnel status
+# (varies by system - check your VPN client or: ifconfig | grep -A5 tun)
+
+# 5. If server is local/LAN, check network
+networksetup -listallnetworkservices  # macOS
+
+# 6. Clear local cache and retry
+rm -rf ~/.cache/actual-budget
+```
