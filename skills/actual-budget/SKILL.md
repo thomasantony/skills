@@ -109,24 +109,42 @@ Columns `category`, `notes`, and `imported_id` are optional.
 
 **`imported_id` is critical for duplicate handling:** When importing transactions from user-provided lists that may contain scheduled duplicates, always include `imported_id`. Actual uses this field to detect duplicates via its reconciliation engine—if a transaction with that ID already exists, it updates instead of duplicating. Use a format like `{payee}-{date}-{amount}` (e.g., `costco-2026-02-15-25.00`).
 
+**⚠️ IMPORTANT - Payee Display Issue:** The `notes` field is displayed MORE PROMINENTLY than the `payee` field in Actual's UI. **Do NOT include generic descriptions in the notes field** (like "Haircut", "Flight", "Meal"). This will override the actual merchant payee names. Only include notes if they provide useful context (e.g., "Trip to Seattle" for a flight, not "Flight"). Leave notes blank for generic transactions.
+
 ## Categorization Workflow
 
 When the user provides transactions to enter (freeform text or file):
 
 0. **Check server connectivity first.** Use the pre-flight check above. If unreachable, troubleshoot before proceeding—don't attempt API calls to a down server.
-1. **Fetch context.** Run `list-categories` and `list-payees` to know available categories and existing payee-to-category mappings.
+1. **Fetch context.** Run `list-payees` to see existing payees. **CRITICAL:** Actual Budget can only import transactions with payees that already exist in the system. For unknown payees:
+   - Check if similar payees exist (e.g., "United Airlines" vs "Alaska Airlines")
+   - Note which payees are missing
+   - **After import, user must manually create missing payees in Actual and edit transactions to link them**
 2. **Auto-categorize** transactions where possible:
    - Match payee names against existing payees (which may have default categories)
    - Infer from common merchant names (e.g., "Shell" → Transportation, "Whole Foods" → Groceries)
-3. **Present a batch review table** for user confirmation:
+3. **Present a batch review table** for user confirmation (include payees prominently):
    ```
-   | # | Date       | Payee        | Amount  | Category (suggested) | Confidence |
-   |---|------------|--------------|---------|---------------------|------------|
-   | 1 | 2026-02-14 | Costco       | -$85.20 | Groceries           | high       |
-   | 2 | 2026-02-15 | AMZN*MK3P2  | -$23.99 | ???                 | low        |
+   | # | Date       | Payee        | Amount  | Category (suggested) | Notes |
+   |---|------------|--------------|---------|---------------------|-------|
+   | 1 | 2026-02-14 | Costco       | -$85.20 | Groceries           | (leave blank) |
+   | 2 | 2026-02-15 | AMZN*MK3P2  | -$23.99 | ???                 | (leave blank) |
    ```
 4. **Ask user to confirm or correct** uncertain categorizations before importing.
-5. **Import** using `add-transaction` (single) or write a temp CSV and use `import-transactions` (batch).
+5. **⚠️ Critical:** Do NOT auto-fill the notes field with generic descriptions (like "Haircut", "Flight", "Meal", "Groceries"). These will override payee names in Actual's UI. Only include notes if absolutely necessary for context.
+6. **Import** using `add-transaction` (single) or write a temp CSV and use `import-transactions` (batch).
+
+## Post-Import - Payee Linking
+
+**After import, you MUST manually create and link unknown payees** (Actual Budget limitation). Transactions imported with unknown payees will have `null` payee entries and only show notes.
+
+Steps:
+1. In Actual, open Settings → Payees
+2. Create any missing payees (Supercuts, AWS, SimpliSafe, Brunch Cafe, etc)
+3. Return to transactions and manually select the correct payee from the dropdown
+4. Transactions that already had known payees (Expedia, airlines) are automatically linked
+
+This limitation occurs because Actual's API `imported_payee` field requires payees to pre-exist in the system.
 
 ## Input Formats
 
@@ -163,6 +181,7 @@ When the user provides transactions to enter (freeform text or file):
 | "Database is out of sync with migrations" | API package version mismatch | Update API package to match server version (see Setup) |
 | "No budget file is open" | Migration sync failed | Clear cache: `rm -rf ~/.cache/actual-budget` then retry |
 | "Unexpected end of JSON input" | Corrupted local cache | Clear cache and restart |
+| Imported transactions show `null` payee, only notes visible | Payee didn't exist in system when imported | See Post-Import section: create missing payees in Actual, then manually link transactions |
 
 ### Network Troubleshooting Checklist
 
