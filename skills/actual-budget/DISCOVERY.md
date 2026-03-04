@@ -51,6 +51,15 @@ Even though the skill wasn't discoverable via `Skill` tool, I could:
 
 This is why "It is a plugin that is installed" + "you can also find it at ~/code/projects-2026-02/skills" worked—the user knew the location and could guide me to it.
 
+## The Fix
+
+Created a symlink in the discoverable location:
+```bash
+ln -s /Users/thomas/code/projects-2026-02/skills/skills/actual-budget ~/.claude/skills/actual-budget
+```
+
+Now the skill appears in Claude Code's available skills list and can be invoked via the `Skill` tool.
+
 ## Lesson Learned
 
 **Skills need to be in a discoverable location to be listed by Claude Code:**
