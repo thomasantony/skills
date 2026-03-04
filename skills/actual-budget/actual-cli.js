@@ -173,6 +173,10 @@ const commands = {
       const categories = await api.getCategories();
       const categoryMap = new Map(categories.map(c => [c.name.toLowerCase(), c.id]));
 
+      // Build payee map for matching existing payees
+      const payees = await api.getPayees();
+      const payeeMap = new Map(payees.map(p => [p.name.toLowerCase(), p.id]));
+
       const transactions = rows.map((row, i) => {
         if (!row.date) throw new Error(`Row ${i + 1}: missing required field "date"`);
         if (!row.amount) throw new Error(`Row ${i + 1}: missing required field "amount"`);
@@ -182,7 +186,15 @@ const commands = {
           amount: api.utils.amountToInteger(parseFloat(row.amount)),
         };
 
-        if (row.payee) t.imported_payee = row.payee;
+        // Try to match existing payee first, fallback to imported_payee for new ones
+        if (row.payee) {
+          const payeeId = payeeMap.get(row.payee.toLowerCase());
+          if (payeeId) {
+            t.payee = payeeId;
+          } else {
+            t.imported_payee = row.payee;
+          }
+        }
         if (row.category) {
           const catId = categoryMap.get(row.category.toLowerCase());
           if (!catId) throw new Error(`Row ${i + 1}: category not found: ${row.category}`);
@@ -249,6 +261,17 @@ const commands = {
       .filter(p => !p.transfer_acct)
       .map(p => ({ id: p.id, name: p.name, category: p.category }));
   }),
+
+  'create-payee': (args) => {
+    if (!args.name) {
+      throw new Error('--name <payee name> is required');
+    }
+    return withBudget(async (api) => {
+      const payeeId = await api.createPayee({ name: args.name });
+      await api.sync();
+      return { id: payeeId, name: args.name, created: true };
+    });
+  },
 
   'get-transactions': (args) => {
     if (!args.account) {
