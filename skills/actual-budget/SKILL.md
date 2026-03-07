@@ -135,28 +135,55 @@ When the user provides transactions to enter (freeform text or file):
    ```
 5. **Ask user to confirm or correct** uncertain categorizations before importing.
 6. **⚠️ Critical:** Do NOT auto-fill the notes field with generic descriptions (like "Haircut", "Flight", "Meal", "Groceries"). These will override payee names in Actual's UI. Only include notes if absolutely necessary for context.
-7. **Import** using `add-transaction` (single) or write a temp CSV and use `import-transactions` (batch). Payee names will be automatically matched to existing payees.
+7. **Import** using `add-transaction` (single) or write a temp CSV and use `import-transactions` (batch). Use EXACT payee names from `list-payees` to ensure matching (see Payee Handling section).
+8. **VERIFY payees linked correctly** (MANDATORY AFTER IMPORT):
+   ```bash
+   node actual-cli.js get-transactions --account "Account Name" --from 2026-03-01 --to 2026-03-07
+   ```
+   Check the output:
+   - Payee column should show merchant names (not empty, not `null`)
+   - If payees appear empty, payee names didn't match existing payees
+   - **Fix:** Re-import with exact matching payee names using same `imported_id` (overwrites unlinked transactions)
 
 ## Payee Handling
 
-**The CLI automatically handles payee matching and creation:**
+**⚠️ CRITICAL: Payee matching is EXACT (case-insensitive), not fuzzy.**
 
-1. **Existing payees:** CSV payee names are matched against existing payees (case-insensitive). If a match is found, the transaction is linked to that payee.
-2. **Missing payees:** If a payee name doesn't match an existing payee, either:
-   - Use `create-payee --name "Payee Name"` to create it first, then re-import, OR
-   - Let it import as a new payee via `imported_payee` field (will need manual linking in Actual UI)
+The CLI matches payee names using exact case-insensitive matching. This means:
+- "Amazon.com" does NOT match "Amazon"
+- "COSTCO" does NOT match "Costco" (case doesn't matter, but spelling must be exact)
+- If no exact match is found, the payee imports as a **new payee** with no warning
+
+**Required workflow to ensure payees link correctly:**
+
+1. **Fetch existing payees:** Always run `list-payees` FIRST to see exact spelling of payees in your system
+2. **Match names exactly:** When building your CSV, use the EXACT payee names that appear in `list-payees` output
+3. **Create missing payees:** For payees NOT in `list-payees`, create them first:
+   ```bash
+   node actual-cli.js create-payee --name "Exact Merchant Name"
+   ```
+4. **Import transactions:** Use the exact payee names from step 1 or step 3 in your CSV
+5. **VERIFY payees linked correctly:** After import, query the transactions to confirm payees actually linked (see verification section below)
 
 **Example workflow:**
 ```bash
-# Before importing, create any new payees that don't exist
-node actual-cli.js create-payee --name "Brunch Cafe"
-node actual-cli.js create-payee --name "DoorDash"
+# Step 1: See existing payees
+node actual-cli.js list-payees | grep -i amazon
+# Output: "Amazon"
 
-# Then import - payee names will be automatically matched and linked
-node actual-cli.js import-transactions --account "Chase Sapphire Preferred" --file transactions.csv
+# Step 2: Use EXACT name "Amazon" in CSV (not "Amazon.com" or "AMAZON MKTPLACE PMTS")
+# CSV payee column: Amazon (for all Amazon transactions)
+
+# Step 4: Import
+node actual-cli.js import-transactions --account "Discover" --file transactions.csv
+
+# Step 5: VERIFY - see Verification section below
 ```
 
-All payees in your CSV should now properly link to existing payees in Actual.
+**If payees don't link (appear empty in Actual UI):**
+- List payees again to see what actually exists now
+- Re-import with exact matching payee names, using the `imported_id` to update existing transactions
+- This overwrites the unlinked transactions with correct payee links
 
 ## Input Formats
 
@@ -193,7 +220,7 @@ All payees in your CSV should now properly link to existing payees in Actual.
 | "Database is out of sync with migrations" | API package version mismatch | Update API package to match server version (see Setup) |
 | "No budget file is open" | Migration sync failed | Clear cache: `rm -rf ~/.cache/actual-budget` then retry |
 | "Unexpected end of JSON input" | Corrupted local cache | Clear cache and restart |
-| Imported transactions show `null` payee | Payee name didn't match existing payees in system | Run `create-payee --name "..."` for missing payees, then re-import. The CLI auto-matches payee names (case-insensitive) |
+| Imported transactions show empty/`null` payee | Payee names in CSV didn't exactly match existing payees in system (matching is EXACT case-insensitive, not fuzzy) | Run `list-payees` to see exact payee names in system. Re-import CSV with exact matching names. Use same `imported_id` to update existing transactions. |
 
 ### Network Troubleshooting Checklist
 
