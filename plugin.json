@@ -6,5 +6,5 @@
     "name": "Thomas Antony"
   },
   "license": "MIT",
-  "keywords": ["vikunja", "tasks", "actual-budget", "finance", "transactions"]
+  "keywords": ["vikunja", "tasks", "actual-budget", "finance", "transactions", "bevy", "game-engine", "ecs", "rust"]
 }
