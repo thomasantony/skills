@@ -43,6 +43,19 @@
         "url": "https://github.com/thomasantony/skills.git"
       },
       "category": "skills"
+    },
+    {
+      "name": "bevy-0.18",
+      "description": "Specialized skill for Bevy 0.18 game engine development — ECS architecture, component design, system ordering, UI development, and Bevy 0.17-to-0.18 migration",
+      "version": "0.1.0",
+      "author": {
+        "name": "Thomas Antony"
+      },
+      "source": {
+        "source": "url",
+        "url": "https://github.com/thomasantony/skills.git"
+      },
+      "category": "skills"
     }
   ]
 }
